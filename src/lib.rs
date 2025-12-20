@@ -95,7 +95,7 @@ impl AdvisoryLock {
         let lock_id = slf.lock_id;
 
         // Release GIL while blocking on async operation.
-        let client = slf.py().allow_threads(|| {
+        let client = slf.py().detach(|| {
             handle.block_on(async {
                 let task_handle = tokio::spawn(async move {
                     let (client, connection) =
@@ -147,9 +147,9 @@ impl AdvisoryLock {
     fn __exit__(
         &mut self,
         py: Python<'_>,
-        exc_type: Option<PyObject>,
-        exc_value: Option<PyObject>,
-        traceback: Option<PyObject>,
+        exc_type: Option<Py<PyAny>>,
+        exc_value: Option<Py<PyAny>>,
+        traceback: Option<Py<PyAny>>,
     ) -> PyResult<bool> {
         let _ = (exc_type, exc_value, traceback);
 
@@ -158,7 +158,7 @@ impl AdvisoryLock {
             let lock_id = self.lock_id;
 
             // Release GIL while blocking on async operation.
-            py.allow_threads(|| {
+            py.detach(|| {
                 handle.block_on(async {
                     let task_handle = tokio::spawn(async move {
                         client
