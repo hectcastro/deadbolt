@@ -10,6 +10,6 @@ name = "_deadbolt"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = { version = "0.23", features = ["extension-module"] }
+pyo3 = { version = "0.24", features = ["extension-module"] }
 tokio = { version = "1", features = ["rt-multi-thread"] }
 tokio-postgres = { version = "0.7", features = ["runtime"] }
