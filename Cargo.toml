@@ -1,0 +1,15 @@
+[package]
+name = "deadbolt"
+version = "0.1.0"
+edition = "2021"
+description = "PostgreSQL advisory lock context manager for Python"
+license = "MIT"
+
+[lib]
+name = "_deadbolt"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.23", features = ["extension-module"] }
+tokio = { version = "1", features = ["rt-multi-thread"] }
+tokio-postgres = { version = "0.7", features = ["runtime"] }

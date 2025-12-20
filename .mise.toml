@@ -1,0 +1,4 @@
+[tools]
+rust = "latest"
+python = "3.12"
+"cargo:maturin" = "latest"
