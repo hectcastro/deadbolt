@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: jdx/mise-action@v3
+        with:
+          cache: true
+
+      - name: Install Rust components
+        run: rustup component add rustfmt clippy
+
+      - name: Install Python dependencies
+        run: make setup
+
+      - name: Run CI checks
+        run: make ci

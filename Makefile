@@ -9,33 +9,33 @@ build:
 
 test: build
 	@echo "==> Running tests..."
-	pytest tests/
+	uv run pytest tests/
 
 test-unit: build
 	@echo "==> Running unit tests..."
-	pytest tests/ -m "not integration" -v
+	uv run uv run pytest tests/ -m "not integration" -v
 
 test-integration: build
 	@echo "==> Running integration tests..."
-	pytest tests/ -m integration -v
+	uv run uv run pytest tests/ -m integration -v
 
 types:
 	@echo "==> Running type checker..."
-	ty check python/ tests/
+	uv run ty check python/ tests/
 
 lint:
 	@echo "==> Running linter..."
-	ruff check .
+	uv run ruff check .
 	cargo clippy -- -D warnings
 
 format:
 	@echo "==> Running code formatters..."
-	ruff format .
+	uv run ruff format .
 	cargo fmt
 
 format-check:
 	@echo "==> Checking code formatting..."
-	ruff format --check .
+	uv run ruff format --check .
 	cargo fmt --check
 
 ci: format-check lint types test

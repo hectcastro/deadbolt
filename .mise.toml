@@ -1,4 +1,5 @@
 [tools]
 rust = "latest"
 python = "3.12"
+uv = "latest"
 "cargo:maturin" = "latest"
