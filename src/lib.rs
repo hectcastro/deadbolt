@@ -79,6 +79,13 @@ impl AdvisoryLock {
     /// Raises:
     ///     RuntimeError: If connection fails or lock acquisition fails
     fn __enter__(mut slf: PyRefMut<'_, Self>) -> PyResult<PyRefMut<'_, Self>> {
+        if slf.client.is_some() {
+            return Err(PyRuntimeError::new_err(format!(
+                "Lock is already held (lock_id={}); re-entrant use is not supported",
+                slf.lock_id
+            )));
+        }
+
         let handle = get_handle();
         let mut parts = vec![
             format!("host={}", slf.host),

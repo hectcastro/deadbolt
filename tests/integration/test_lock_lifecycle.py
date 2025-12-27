@@ -1,3 +1,5 @@
+import pytest
+
 from deadbolt import AdvisoryLock
 
 
@@ -19,3 +21,12 @@ class TestLockLifecycle:
 
         with lock as acquired:
             assert acquired is lock
+
+    def test_reentrant_use_raises_error(self, conn_params: dict, unique_lock_id: int) -> None:
+        """Nested use of same lock instance raises RuntimeError."""
+        lock = AdvisoryLock(lock_id=unique_lock_id, **conn_params)
+
+        with lock:  # noqa: SIM117
+            with pytest.raises(RuntimeError, match="already held"):
+                with lock:
+                    pass
