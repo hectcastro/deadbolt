@@ -33,4 +33,12 @@ class AdvisoryLock:
     @property
     def password(self) -> str | None: ...
     @property
-    def is_locked(self) -> bool: ...
+    def is_locked(self) -> bool:
+        """Whether a client connection handle exists.
+
+        Note: This reflects whether the client handle is present, not whether
+        the lock is definitely held on the server. If the connection drops
+        unexpectedly, this may return True even though the server-side lock
+        has been released.
+        """
+        ...
