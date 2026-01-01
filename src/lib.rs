@@ -87,28 +87,27 @@ impl AdvisoryLock {
         }
 
         let handle = get_handle();
-        let mut parts = vec![
-            format!("host={}", slf.host),
-            format!("port={}", slf.port),
-            format!("dbname={}", slf.database),
-        ];
+
+        let mut config = tokio_postgres::Config::new();
+        config.host(&slf.host);
+        config.port(slf.port);
+        config.dbname(&slf.database);
         if let Some(ref user) = slf.user {
-            parts.push(format!("user={}", user));
+            config.user(user);
         }
         if let Some(ref password) = slf.password {
-            parts.push(format!("password={}", password));
+            config.password(password);
         }
-        let dsn = parts.join(" ");
+
         let lock_id = slf.lock_id;
 
         // Release GIL while blocking on async operation.
         let client = slf.py().detach(|| {
             handle.block_on(async {
                 let task_handle = tokio::spawn(async move {
-                    let (client, connection) =
-                        tokio_postgres::connect(&dsn, NoTls).await.map_err(|e| {
-                            PyRuntimeError::new_err(format!("Connection failed: {}", e))
-                        })?;
+                    let (client, connection) = config.connect(NoTls).await.map_err(|e| {
+                        PyRuntimeError::new_err(format!("Connection failed: {}", e))
+                    })?;
 
                     tokio::spawn(async move {
                         if let Err(e) = connection.await {
