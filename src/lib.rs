@@ -1,6 +1,7 @@
 use once_cell::sync::OnceCell;
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
+use std::sync::{Arc, Mutex};
 use tokio::runtime::{Handle, Runtime};
 use tokio_postgres::{Client, NoTls};
 
@@ -38,6 +39,8 @@ pub struct AdvisoryLock {
     timeout: Option<u64>,
     /// Active connection, only Some when lock is held
     client: Option<Client>,
+    /// Shared state to track connection errors
+    connection_error: Arc<Mutex<Option<String>>>,
 }
 
 #[pymethods]
@@ -72,6 +75,7 @@ impl AdvisoryLock {
             lock_id,
             timeout,
             client: None,
+            connection_error: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -108,6 +112,7 @@ impl AdvisoryLock {
 
         let lock_id = slf.lock_id;
         let timeout_duration = slf.timeout;
+        let error_state = Arc::clone(&slf.connection_error);
 
         // Release GIL while blocking on async operation.
         let client = slf.py().detach(|| {
@@ -118,9 +123,15 @@ impl AdvisoryLock {
                             PyRuntimeError::new_err(format!("Connection failed: {}", e))
                         })?;
 
+                        // Spawn connection driver with error tracking
+                        let error_state_clone = Arc::clone(&error_state);
                         tokio::spawn(async move {
                             if let Err(e) = connection.await {
-                                eprintln!("connection error: {}", e);
+                                let error_msg = format!("Connection lost: {}", e);
+                                eprintln!("{}", error_msg);
+                                if let Ok(mut err) = error_state_clone.lock() {
+                                    *err = Some(error_msg);
+                                }
                             }
                         });
 
@@ -206,6 +217,16 @@ impl AdvisoryLock {
                         .map_err(|e| PyRuntimeError::new_err(format!("Task join failed: {}", e)))?
                 })
             })?;
+
+            // Check if connection error occurred during the lock lifetime
+            if let Ok(err_lock) = self.connection_error.lock() {
+                if let Some(ref error_msg) = *err_lock {
+                    eprintln!(
+                        "Warning: {}. Lock may have been released early by PostgreSQL.",
+                        error_msg
+                    );
+                }
+            }
         }
 
         Ok(false)
