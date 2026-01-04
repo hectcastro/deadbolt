@@ -32,6 +32,7 @@ class AdvisoryLock:
         user: str | None = None,
         password: str | None = None,
         port: int = 5432,
+        timeout: int | None = None,
     ) -> None:
         """Create a new AdvisoryLock instance.
 
@@ -42,6 +43,7 @@ class AdvisoryLock:
             user: Database user (optional)
             password: Database password (optional)
             port: Database port (default: 5432)
+            timeout: Timeout in seconds for lock acquisition (optional)
         """
         ...
 
@@ -105,11 +107,6 @@ class AdvisoryLock:
     @property
     def user(self) -> str | None:
         """The database user."""
-        ...
-
-    @property
-    def password(self) -> str | None:
-        """The database password."""
         ...
 
     @property
