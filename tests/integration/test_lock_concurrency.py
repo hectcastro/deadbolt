@@ -134,3 +134,54 @@ class TestConcurrentBlocking:
         assert t1_releasing_idx < t2_acquired_idx, (
             f"Expected T1 to start releasing before T2 acquires. Events: {events}"
         )
+
+
+class TestLockTimeout:
+    def test_lock_acquisition_times_out(self, conn_params: dict, unique_lock_id: int) -> None:
+        """Lock acquisition times out when lock is held and timeout is set."""
+        import pytest
+
+        # Hold lock in first thread
+        lock1 = AdvisoryLock(lock_id=unique_lock_id, **conn_params)
+
+        with lock1:
+            # Try to acquire same lock with timeout
+            lock2 = AdvisoryLock(lock_id=unique_lock_id, timeout=1, **conn_params)
+
+            with pytest.raises(RuntimeError, match="timed out"), lock2:
+                pass
+
+    def test_lock_acquisition_succeeds_within_timeout(
+        self, conn_params: dict, unique_lock_id: int
+    ) -> None:
+        """Lock acquisition succeeds if lock is released before timeout."""
+        import threading
+
+        events: list[str] = []
+        lock = threading.Lock()
+
+        def record(msg: str) -> None:
+            with lock:
+                events.append(msg)
+
+        def holder() -> None:
+            lock1 = AdvisoryLock(lock_id=unique_lock_id, **conn_params)
+            with lock1:
+                record("holder:acquired")
+                time.sleep(0.5)
+                record("holder:releasing")
+
+        # Start holder thread
+        t1 = threading.Thread(target=holder)
+        t1.start()
+        time.sleep(0.1)  # Ensure holder acquires first
+
+        # Try to acquire with 2-second timeout (should succeed after 0.5s)
+        lock2 = AdvisoryLock(lock_id=unique_lock_id, timeout=2, **conn_params)
+        with lock2:
+            record("waiter:acquired")
+
+        t1.join()
+
+        assert "holder:acquired" in events
+        assert "waiter:acquired" in events

@@ -34,6 +34,8 @@ pub struct AdvisoryLock {
     password: Option<String>,
     /// Lock ID (PostgreSQL bigint)
     lock_id: i64,
+    /// Timeout in seconds for lock acquisition (None = no timeout)
+    timeout: Option<u64>,
     /// Active connection, only Some when lock is held
     client: Option<Client>,
 }
@@ -49,8 +51,9 @@ impl AdvisoryLock {
     ///     user: Database user (optional)
     ///     password: Database password (optional)
     ///     port: Database port (default: 5432)
+    ///     timeout: Timeout in seconds for lock acquisition (optional, no timeout if not set)
     #[new]
-    #[pyo3(signature = (lock_id, host, database, user=None, password=None, port=5432))]
+    #[pyo3(signature = (lock_id, host, database, user=None, password=None, port=5432, timeout=None))]
     fn new(
         lock_id: i64,
         host: String,
@@ -58,6 +61,7 @@ impl AdvisoryLock {
         user: Option<String>,
         password: Option<String>,
         port: u16,
+        timeout: Option<u64>,
     ) -> Self {
         AdvisoryLock {
             host,
@@ -66,6 +70,7 @@ impl AdvisoryLock {
             user,
             password,
             lock_id,
+            timeout,
             client: None,
         }
     }
@@ -102,34 +107,51 @@ impl AdvisoryLock {
         }
 
         let lock_id = slf.lock_id;
+        let timeout_duration = slf.timeout;
 
         // Release GIL while blocking on async operation.
         let client = slf.py().detach(|| {
             handle.block_on(async {
-                let task_handle = tokio::spawn(async move {
-                    let (client, connection) = config.connect(NoTls).await.map_err(|e| {
-                        PyRuntimeError::new_err(format!("Connection failed: {}", e))
-                    })?;
-
-                    tokio::spawn(async move {
-                        if let Err(e) = connection.await {
-                            eprintln!("connection error: {}", e);
-                        }
-                    });
-
-                    client
-                        .execute("SELECT pg_advisory_lock($1)", &[&lock_id])
-                        .await
-                        .map_err(|e| {
-                            PyRuntimeError::new_err(format!("Lock acquisition failed: {}", e))
+                let acquire_lock = async {
+                    let task_handle = tokio::spawn(async move {
+                        let (client, connection) = config.connect(NoTls).await.map_err(|e| {
+                            PyRuntimeError::new_err(format!("Connection failed: {}", e))
                         })?;
 
-                    Ok::<_, PyErr>(client)
-                });
+                        tokio::spawn(async move {
+                            if let Err(e) = connection.await {
+                                eprintln!("connection error: {}", e);
+                            }
+                        });
 
-                task_handle
-                    .await
-                    .map_err(|e| PyRuntimeError::new_err(format!("Task join failed: {}", e)))?
+                        client
+                            .execute("SELECT pg_advisory_lock($1)", &[&lock_id])
+                            .await
+                            .map_err(|e| {
+                                PyRuntimeError::new_err(format!("Lock acquisition failed: {}", e))
+                            })?;
+
+                        Ok::<_, PyErr>(client)
+                    });
+
+                    task_handle
+                        .await
+                        .map_err(|e| PyRuntimeError::new_err(format!("Task join failed: {}", e)))?
+                };
+
+                // Apply timeout if specified
+                if let Some(secs) = timeout_duration {
+                    tokio::time::timeout(std::time::Duration::from_secs(secs), acquire_lock)
+                        .await
+                        .map_err(|_| {
+                            PyRuntimeError::new_err(format!(
+                                "Lock acquisition timed out after {} seconds",
+                                secs
+                            ))
+                        })?
+                } else {
+                    acquire_lock.await
+                }
             })
         })?;
 

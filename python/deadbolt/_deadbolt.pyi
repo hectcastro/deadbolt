@@ -12,6 +12,7 @@ class AdvisoryLock:
         user: str | None = None,
         password: str | None = None,
         port: int = 5432,
+        timeout: int | None = None,
     ) -> None: ...
     def __enter__(self) -> Self: ...
     def __exit__(
