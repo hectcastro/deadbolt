@@ -212,11 +212,6 @@ impl AdvisoryLock {
         self.user.as_deref()
     }
 
-    #[getter]
-    fn password(&self) -> Option<&str> {
-        self.password.as_deref()
-    }
-
     /// Whether a client connection handle exists.
     ///
     /// Note: This reflects whether the client handle is present, not whether

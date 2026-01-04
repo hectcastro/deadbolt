@@ -31,8 +31,6 @@ class AdvisoryLock:
     @property
     def user(self) -> str | None: ...
     @property
-    def password(self) -> str | None: ...
-    @property
     def is_locked(self) -> bool:
         """Whether a client connection handle exists.
 

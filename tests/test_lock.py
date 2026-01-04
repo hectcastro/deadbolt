@@ -53,3 +53,15 @@ def test_lock_id_types():
     # Negative int
     lock3 = AdvisoryLock(lock_id=-1, host="localhost", database="test")
     assert lock3.lock_id == -1
+
+
+def test_password_not_exposed():
+    """Password is not exposed as a property for security reasons."""
+    from deadbolt import AdvisoryLock
+
+    lock = AdvisoryLock(
+        lock_id=1, host="localhost", database="test", user="postgres", password="secret123"
+    )
+
+    # Password should not be accessible
+    assert not hasattr(lock, "password")
