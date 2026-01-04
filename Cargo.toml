@@ -13,3 +13,4 @@ crate-type = ["cdylib"]
 pyo3 = { version = "0.27", features = ["extension-module"] }
 tokio = { version = "1", features = ["rt-multi-thread"] }
 tokio-postgres = { version = "0.7", features = ["runtime"] }
+once_cell = "1.20"

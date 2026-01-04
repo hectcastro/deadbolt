@@ -1,17 +1,19 @@
+use once_cell::sync::OnceCell;
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
-use std::sync::OnceLock;
 use tokio::runtime::{Handle, Runtime};
 use tokio_postgres::{Client, NoTls};
 
-static RUNTIME: OnceLock<Runtime> = OnceLock::new();
+static RUNTIME: OnceCell<Runtime> = OnceCell::new();
 
-fn get_runtime() -> &'static Runtime {
-    RUNTIME.get_or_init(|| Runtime::new().expect("Failed to create tokio runtime"))
+fn get_runtime() -> PyResult<&'static Runtime> {
+    RUNTIME
+        .get_or_try_init(Runtime::new)
+        .map_err(|e| PyRuntimeError::new_err(format!("Failed to create tokio runtime: {}", e)))
 }
 
-fn get_handle() -> Handle {
-    get_runtime().handle().clone()
+fn get_handle() -> PyResult<Handle> {
+    Ok(get_runtime()?.handle().clone())
 }
 
 /// PostgreSQL advisory lock context manager.
@@ -86,7 +88,7 @@ impl AdvisoryLock {
             )));
         }
 
-        let handle = get_handle();
+        let handle = get_handle()?;
 
         let mut config = tokio_postgres::Config::new();
         config.host(&slf.host);
@@ -160,7 +162,7 @@ impl AdvisoryLock {
         let _ = (exc_type, exc_value, traceback);
 
         if let Some(client) = self.client.take() {
-            let handle = get_handle();
+            let handle = get_handle()?;
             let lock_id = self.lock_id;
 
             // Release GIL while blocking on async operation.
