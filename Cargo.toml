@@ -3,7 +3,7 @@ name = "deadbolt"
 version = "0.1.0"
 edition = "2021"
 description = "PostgreSQL advisory lock context manager for Python"
-license = "MIT"
+license = "Apache-2.0"
 
 [lib]
 name = "_deadbolt"
